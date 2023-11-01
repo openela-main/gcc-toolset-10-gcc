@@ -1,0 +1,53 @@
+commit 6fade5a6044b7102758f4ca66c8715ebc12a6306
+Author: Martin Liska <mliska@suse.cz>
+Date:   Thu Oct 22 14:07:29 2020 +0200
+
+    LTO: check that make command works
+    
+    gcc/ChangeLog:
+    
+            PR lto/97524
+            * lto-wrapper.c (make_exists): New function.
+            (run_gcc): Use it to check that make is present and working
+            for parallel execution.
+
+--- gcc/lto-wrapper.c
++++ gcc/lto-wrapper.c
+@@ -1321,6 +1321,26 @@ jobserver_active_p (void)
+ 	  && is_valid_fd (wfd));
+ }
+ 
++/* Test that a make command is present and working, return true if so.  */
++
++static bool
++make_exists (void)
++{
++  const char *make = "make";
++  char **make_argv = buildargv (getenv ("MAKE"));
++  if (make_argv)
++    make = make_argv[0];
++  const char *make_args[] = {make, "--version", NULL};
++
++  int exit_status = 0;
++  int err = 0;
++  const char *errmsg
++    = pex_one (PEX_SEARCH, make_args[0], CONST_CAST (char **, make_args),
++	       "make", NULL, NULL, &exit_status, &err);
++  freeargv (make_argv);
++  return errmsg == NULL && exit_status == 0 && err == 0;
++}
++
+ /* Execute gcc. ARGC is the number of arguments. ARGV contains the arguments. */
+ 
+ static void
+@@ -1541,6 +1561,10 @@ run_gcc (unsigned argc, char *argv[])
+       jobserver = 1;
+     }
+ 
++  /* We need make working for a parallel execution.  */
++  if (parallel && !make_exists ())
++    parallel = 0;
++
+   if (linker_output)
+     {
+       char *output_dir, *base, *name;

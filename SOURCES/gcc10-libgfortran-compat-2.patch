@@ -1,0 +1,78 @@
+diff -u libgfortran/Makefile.am libgfortran/Makefile.am
+--- libgfortran/Makefile.am	2020-05-28 13:55:44.816954223 +0200
++++ libgfortran/Makefile.am	2020-05-28 13:55:44.816954223 +0200
+@@ -1087,6 +1087,7 @@
+ nonshared-findloc0_r16.c \
+ nonshared-findloc0_c4.c \
+ nonshared-findloc0_c8.c \
++nonshared-findloc0_c10.c \
+ nonshared-findloc0_c16.c \
+ nonshared-findloc0_s1.c \
+ nonshared-findloc0_s4.c \
+@@ -1101,6 +1102,7 @@
+ nonshared-findloc1_r16.c \
+ nonshared-findloc1_c4.c \
+ nonshared-findloc1_c8.c \
++nonshared-findloc1_c10.c \
+ nonshared-findloc1_c16.c \
+ nonshared-findloc1_s1.c \
+ nonshared-findloc1_s4.c \
+diff -u libgfortran/Makefile.in libgfortran/Makefile.in
+--- libgfortran/Makefile.in	2020-05-28 14:05:15.576583891 +0200
++++ libgfortran/Makefile.in	2020-05-28 14:05:15.576583891 +0200
+@@ -475,14 +475,15 @@
+ 	nonshared-findloc0_i16.lo nonshared-findloc0_r4.lo \
+ 	nonshared-findloc0_r8.lo nonshared-findloc0_r10.lo \
+ 	nonshared-findloc0_r16.lo nonshared-findloc0_c4.lo \
+-	nonshared-findloc0_c8.lo nonshared-findloc0_c16.lo \
+-	nonshared-findloc0_s1.lo nonshared-findloc0_s4.lo \
+-	nonshared-findloc1_i1.lo nonshared-findloc1_i2.lo \
+-	nonshared-findloc1_i4.lo nonshared-findloc1_i8.lo \
+-	nonshared-findloc1_i16.lo nonshared-findloc1_r4.lo \
+-	nonshared-findloc1_r8.lo nonshared-findloc1_r10.lo \
+-	nonshared-findloc1_r16.lo nonshared-findloc1_c4.lo \
+-	nonshared-findloc1_c8.lo nonshared-findloc1_c16.lo \
++	nonshared-findloc0_c8.lo nonshared-findloc0_c10.lo \
++	nonshared-findloc0_c16.lo nonshared-findloc0_s1.lo \
++	nonshared-findloc0_s4.lo nonshared-findloc1_i1.lo \
++	nonshared-findloc1_i2.lo nonshared-findloc1_i4.lo \
++	nonshared-findloc1_i8.lo nonshared-findloc1_i16.lo \
++	nonshared-findloc1_r4.lo nonshared-findloc1_r8.lo \
++	nonshared-findloc1_r10.lo nonshared-findloc1_r16.lo \
++	nonshared-findloc1_c4.lo nonshared-findloc1_c8.lo \
++	nonshared-findloc1_c10.lo nonshared-findloc1_c16.lo \
+ 	nonshared-findloc1_s1.lo nonshared-findloc1_s4.lo \
+ 	nonshared-findloc2_s1.lo nonshared-findloc2_s4.lo
+ am__objects_68 = nonshared-is_contiguous.lo \
+@@ -1597,6 +1598,7 @@
+ nonshared-findloc0_r16.c \
+ nonshared-findloc0_c4.c \
+ nonshared-findloc0_c8.c \
++nonshared-findloc0_c10.c \
+ nonshared-findloc0_c16.c \
+ nonshared-findloc0_s1.c \
+ nonshared-findloc0_s4.c \
+@@ -1611,6 +1613,7 @@
+ nonshared-findloc1_r16.c \
+ nonshared-findloc1_c4.c \
+ nonshared-findloc1_c8.c \
++nonshared-findloc1_c10.c \
+ nonshared-findloc1_c16.c \
+ nonshared-findloc1_s1.c \
+ nonshared-findloc1_s4.c \
+@@ -2214,6 +2217,7 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/mvbits.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-ISO_Fortran_binding.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-error.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc0_c10.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc0_c16.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc0_c4.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc0_c8.Plo@am__quote@
+@@ -2228,6 +2232,7 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc0_r8.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc0_s1.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc0_s4.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc1_c10.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc1_c16.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc1_c4.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonshared-findloc1_c8.Plo@am__quote@
