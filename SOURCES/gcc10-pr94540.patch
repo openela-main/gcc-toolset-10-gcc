@@ -1,0 +1,324 @@
+commit 632183ddcc8f3aead8b4fc63c4ab59a42ef9ad00
+Author: Jonathan Wakely <jwakely@redhat.com>
+Date:   Wed Jun 17 22:49:06 2020 +0100
+
+    libstdc++: Avoid stack overflow in std::vector (PR 94540)
+    
+    The std::__uninitialized_default_n algorithm used by std::vector creates
+    an initial object as a local variable then copies that into the
+    destination range. If the object is too large for the stack this
+    crashes. We should create the first object directly into the
+    destination and then copy it from there.
+    
+    This doesn't fix the bug for C++98, because in that case the initial
+    value is created as a default argument of the vector constructor i.e. in
+    the user's code, not inside libstdc++. We can't prevent that.
+    
+            PR libstdc++/94540
+            * include/bits/stl_uninitialized.h (__uninitialized_default_1<true>):
+            Construct the first value at *__first instead of on the stack.
+            (__uninitialized_default_n_1<true>): Likewise.
+            Improve comments on several of the non-standard algorithms.
+            * testsuite/20_util/specialized_algorithms/uninitialized_default/94540.cc:
+            New test.
+            * testsuite/20_util/specialized_algorithms/uninitialized_default_n/94540.cc:
+            New test.
+            * testsuite/20_util/specialized_algorithms/uninitialized_value_construct/94540.cc:
+            New test.
+            * testsuite/20_util/specialized_algorithms/uninitialized_value_construct_n/94540.cc:
+            New test.
+            * testsuite/23_containers/vector/cons/94540.cc: New test.
+
+--- libstdc++-v3/include/bits/stl_uninitialized.h
++++ libstdc++-v3/include/bits/stl_uninitialized.h
+@@ -556,7 +556,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 	  typedef typename iterator_traits<_ForwardIterator>::value_type
+ 	    _ValueType;
+ 
+-	  std::fill(__first, __last, _ValueType());
++	  if (__first == __last)
++	    return;
++
++	  typename iterator_traits<_ForwardIterator>::value_type* __val
++	    = std::__addressof(*__first);
++	  std::_Construct(__val);
++	  if (++__first != __last)
++	    std::fill(__first, __last, *__val);
+ 	}
+     };
+ 
+@@ -589,16 +596,20 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+         static _ForwardIterator
+         __uninit_default_n(_ForwardIterator __first, _Size __n)
+         {
+-	  typedef typename iterator_traits<_ForwardIterator>::value_type
+-	    _ValueType;
+-
+-	  return std::fill_n(__first, __n, _ValueType());
++	  if (__n > 0)
++	    {
++	      typename iterator_traits<_ForwardIterator>::value_type* __val
++		= std::__addressof(*__first);
++	      std::_Construct(__val);
++	      ++__first;
++	      __first = std::fill_n(__first, __n - 1, *__val);
++	    }
++	  return __first;
+ 	}
+     };
+ 
+   // __uninitialized_default
+-  // Fills [first, last) with std::distance(first, last) default
+-  // constructed value_types(s).
++  // Fills [first, last) with value-initialized value_types.
+   template<typename _ForwardIterator>
+     inline void
+     __uninitialized_default(_ForwardIterator __first,
+@@ -615,7 +626,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+     }
+ 
+   // __uninitialized_default_n
+-  // Fills [first, first + n) with n default constructed value_type(s).
++  // Fills [first, first + n) with value-initialized value_types.
+   template<typename _ForwardIterator, typename _Size>
+     inline _ForwardIterator
+     __uninitialized_default_n(_ForwardIterator __first, _Size __n)
+@@ -633,8 +644,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 
+ 
+   // __uninitialized_default_a
+-  // Fills [first, last) with std::distance(first, last) default
+-  // constructed value_types(s), constructed with the allocator alloc.
++  // Fills [first, last) with value_types constructed by the allocator
++  // alloc, with no arguments passed to the construct call.
+   template<typename _ForwardIterator, typename _Allocator>
+     void
+     __uninitialized_default_a(_ForwardIterator __first,
+@@ -664,8 +675,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 
+ 
+   // __uninitialized_default_n_a
+-  // Fills [first, first + n) with n default constructed value_types(s),
+-  // constructed with the allocator alloc.
++  // Fills [first, first + n) with value_types constructed by the allocator
++  // alloc, with no arguments passed to the construct call.
+   template<typename _ForwardIterator, typename _Size, typename _Allocator>
+     _ForwardIterator
+     __uninitialized_default_n_a(_ForwardIterator __first, _Size __n, 
+@@ -686,6 +697,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 	}
+     }
+ 
++  // __uninitialized_default_n_a specialization for std::allocator,
++  // which ignores the allocator and value-initializes the elements.
+   template<typename _ForwardIterator, typename _Size, typename _Tp>
+     inline _ForwardIterator
+     __uninitialized_default_n_a(_ForwardIterator __first, _Size __n, 
+@@ -757,8 +770,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+     };
+ 
+   // __uninitialized_default_novalue
+-  // Fills [first, last) with std::distance(first, last) default-initialized
+-  // value_types(s).
++  // Fills [first, last) with default-initialized value_types.
+   template<typename _ForwardIterator>
+     inline void
+     __uninitialized_default_novalue(_ForwardIterator __first,
+@@ -772,8 +784,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
+ 	__uninit_default_novalue(__first, __last);
+     }
+ 
+-  // __uninitialized_default_n
+-  // Fills [first, first + n) with n default-initialized value_type(s).
++  // __uninitialized_default_novalue_n
++  // Fills [first, first + n) with default-initialized value_types.
+   template<typename _ForwardIterator, typename _Size>
+     inline _ForwardIterator
+     __uninitialized_default_novalue_n(_ForwardIterator __first, _Size __n)
+--- /dev/null
++++ libstdc++-v3/testsuite/20_util/specialized_algorithms/uninitialized_default/94540.cc
+@@ -0,0 +1,34 @@
++// Copyright (C) 2020 Free Software Foundation, Inc.
++//
++// This file is part of the GNU ISO C++ Library.  This library is free
++// software; you can redistribute it and/or modify it under the
++// terms of the GNU General Public License as published by the
++// Free Software Foundation; either version 3, or (at your option)
++// any later version.
++
++// This library is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++// GNU General Public License for more details.
++
++// You should have received a copy of the GNU General Public License along
++// with this library; see the file COPYING3.  If not see
++// <http://www.gnu.org/licenses/>.
++
++// { dg-do run { target { c++11 && { ! simulator } } } }
++
++#include <memory>
++#include <testsuite_hooks.h>
++
++// Assume that 9MB is larger than the stack limit.
++struct X { char data[9*1024*1024]; };
++
++static_assert( std::is_trivial<X>::value, "" );
++
++int main()
++{
++  auto mem = new char[sizeof(X) * 2];
++  auto p = reinterpret_cast<X*>(mem);
++  std::__uninitialized_default(p, p + 2);
++  delete[] mem;
++}
+--- /dev/null
++++ libstdc++-v3/testsuite/20_util/specialized_algorithms/uninitialized_default_n/94540.cc
+@@ -0,0 +1,34 @@
++// Copyright (C) 2020 Free Software Foundation, Inc.
++//
++// This file is part of the GNU ISO C++ Library.  This library is free
++// software; you can redistribute it and/or modify it under the
++// terms of the GNU General Public License as published by the
++// Free Software Foundation; either version 3, or (at your option)
++// any later version.
++
++// This library is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++// GNU General Public License for more details.
++
++// You should have received a copy of the GNU General Public License along
++// with this library; see the file COPYING3.  If not see
++// <http://www.gnu.org/licenses/>.
++
++// { dg-do run { target { c++11 && { ! simulator } } } }
++
++#include <memory>
++#include <testsuite_hooks.h>
++
++// Assume that 9MB is larger than the stack limit.
++struct X { char data[9*1024*1024]; };
++
++static_assert( std::is_trivial<X>::value, "" );
++
++int main()
++{
++  auto mem = new char[sizeof(X) * 2];
++  auto p = reinterpret_cast<X*>(mem);
++  std::__uninitialized_default_n(p, 2);
++  delete[] mem;
++}
+--- /dev/null
++++ libstdc++-v3/testsuite/20_util/specialized_algorithms/uninitialized_value_construct/94540.cc
+@@ -0,0 +1,35 @@
++// Copyright (C) 2020 Free Software Foundation, Inc.
++//
++// This file is part of the GNU ISO C++ Library.  This library is free
++// software; you can redistribute it and/or modify it under the
++// terms of the GNU General Public License as published by the
++// Free Software Foundation; either version 3, or (at your option)
++// any later version.
++
++// This library is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++// GNU General Public License for more details.
++
++// You should have received a copy of the GNU General Public License along
++// with this library; see the file COPYING3.  If not see
++// <http://www.gnu.org/licenses/>.
++
++// { dg-options "-std=gnu++17" }
++// { dg-do run { target { c++17 && { ! simulator } } } }
++
++#include <memory>
++#include <testsuite_hooks.h>
++
++// Assume that 9MB is larger than the stack limit.
++struct X { char data[9*1024*1024]; };
++
++static_assert( std::is_trivial_v<X> );
++
++int main()
++{
++  auto mem = new char[sizeof(X) * 2];
++  auto p = reinterpret_cast<X*>(mem);
++  std::uninitialized_value_construct(p, p + 2);
++  delete[] mem;
++}
+--- /dev/null
++++ libstdc++-v3/testsuite/20_util/specialized_algorithms/uninitialized_value_construct_n/94540.cc
+@@ -0,0 +1,34 @@
++// Copyright (C) 2020 Free Software Foundation, Inc.
++//
++// This file is part of the GNU ISO C++ Library.  This library is free
++// software; you can redistribute it and/or modify it under the
++// terms of the GNU General Public License as published by the
++// Free Software Foundation; either version 3, or (at your option)
++// any later version.
++
++// This library is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++// GNU General Public License for more details.
++
++// You should have received a copy of the GNU General Public License along
++// with this library; see the file COPYING3.  If not see
++// <http://www.gnu.org/licenses/>.
++
++// { dg-options "-std=gnu++17" }
++// { dg-do run { target { c++17 && { ! simulator } } } }
++
++#include <memory>
++#include <testsuite_hooks.h>
++
++// Assume that 9MB is larger than the stack limit.
++struct X { char data[9*1024*1024]; };
++
++static_assert( std::is_trivial_v<X> );
++
++int main()
++{
++  auto mem = new char[sizeof(X) * 2];
++  std::uninitialized_value_construct_n(reinterpret_cast<X*>(mem), 2);
++  delete[] mem;
++}
+--- /dev/null
++++ libstdc++-v3/testsuite/23_containers/vector/cons/94540.cc
+@@ -0,0 +1,35 @@
++// Copyright (C) 2020 Free Software Foundation, Inc.
++//
++// This file is part of the GNU ISO C++ Library.  This library is free
++// software; you can redistribute it and/or modify it under the
++// terms of the GNU General Public License as published by the
++// Free Software Foundation; either version 3, or (at your option)
++// any later version.
++
++// This library is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++// GNU General Public License for more details.
++
++// You should have received a copy of the GNU General Public License along
++// with this library; see the file COPYING3.  If not see
++// <http://www.gnu.org/licenses/>.
++
++// { dg-do run { target { c++11 && { ! simulator } } } }
++
++#include <vector>
++#include <testsuite_hooks.h>
++
++// Assume that 9MB is larger than the stack limit.
++struct X { char data[9*1024*1024]; };
++
++static_assert( std::is_trivial<X>::value, "" );
++
++int main()
++{
++  std::vector<X> v(1);
++  VERIFY( v.size() == 1 );
++  v.clear();
++  v.resize(2);
++  VERIFY( v.size() == 2 );
++}
